@@ -1,9 +1,10 @@
+import 'package:calatolg/api/posts_api.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:calatolg/bloc/products_bloc.dart';
+import 'package:calatolg/bloc/post_bloc.dart';
 
-void main() {
+void main() async {
   runApp(MyApp());
 }
 
@@ -11,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ProductsBloc(),
+      create: (_) => PostsBloc(api: PostsAPI()),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Catalog(),
@@ -20,72 +21,43 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Catalog extends StatelessWidget {
+class Catalog extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    final bloc = Provider.of<ProductsBloc>(context);
-    final products = bloc.products;
-
-    return Scaffold(
-      appBar: AppBar(
-        actions: [
-          IconButton(
-            icon: Icon(Icons.shopping_cart),
-            onPressed: () => Navigator.of(context).push(ShoppingCartPage.go()),
-          ),
-        ],
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(8),
-        shrinkWrap: true,
-        itemCount: products.length,
-        itemBuilder: (_, int i) {
-          final product = products[i];
-
-          return CheckboxListTile(
-            title: Text(product.name),
-            subtitle: Text("\$${product.price}"),
-            value: product.isChecked,
-            onChanged: (value) => bloc.updateProduct(value!, product),
-          );
-        },
-      ),
-    );
-  }
+  _CatalogState createState() => _CatalogState();
 }
 
-class ShoppingCartPage extends StatelessWidget {
-  const ShoppingCartPage({Key? key}) : super(key: key);
+class _CatalogState extends State<Catalog> {
+  @override
+  void initState() {
+    super.initState();
 
-  static Route go() {
-    return MaterialPageRoute<void>(builder: (_) => ShoppingCartPage());
+    WidgetsBinding.instance!.addPostFrameCallback((_) {
+      context.read<PostsBloc>().getPosts();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final bloc = Provider.of<ProductsBloc>(context);
-    final cart = bloc.cart;
+    final bloc = context.watch<PostsBloc>();
+    final posts = bloc.posts;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Your Cart')),
-      body: Column(
-        children: [
-          ListView.separated(
-            shrinkWrap: true,
-            itemCount: cart.length,
-            itemBuilder: (_, index) {
-              final product = cart[index];
+      appBar: AppBar(),
+      body: bloc.isLoading || posts.isEmpty
+          ? Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              padding: const EdgeInsets.all(8),
+              shrinkWrap: true,
+              itemCount: posts.length,
+              itemBuilder: (_, int i) {
+                final post = posts[i];
 
-              return ListTile(
-                title: Text(product.name),
-                trailing: Text('\$${product.price}'),
-              );
-            },
-            separatorBuilder: (_, __) => Divider(),
-          ),
-          Text('Total: \$${bloc.total}'),
-        ],
-      ),
+                return ListTile(
+                  title: Text(post.title),
+                  subtitle: Text(post.body),
+                );
+              },
+            ),
     );
   }
 }
